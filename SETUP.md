@@ -48,7 +48,7 @@ Create the empty GitHub repository first. Do **not** commit `.env` or `.env.loca
 ```text
 TELEGRAM_BOT_TOKEN=YOUR_BOTFATHER_TOKEN
 GEMINI_API_KEY=YOUR_GEMINI_KEY
-GEMINI_MODEL=gemini-3.8-flash
+GEMINI_MODEL=gemini-3.5-flash-lite
 TELEGRAM_WEBHOOK_SECRET=YOUR_RANDOM_SECRET
 ```
 
@@ -124,7 +124,7 @@ Make sure `TELEGRAM_WEBHOOK_SECRET` in Vercel exactly matches the `secret_token`
 Confirm `GEMINI_API_KEY` exists in Vercel Environment Variables and redeploy after changing environment variables.
 
 ### Change Gemini model
-Change `GEMINI_MODEL` in Vercel and redeploy. The default included here is `gemini-3.8-flash`.
+Change `GEMINI_MODEL` in Vercel and redeploy. The default included here is `gemini-3.5-flash-lite`.
 
 ## Important limitations
 This starter does **not** store chat history, customer accounts or support tickets. Each normal message is sent to Gemini independently. This keeps the first deployment simple and avoids needing a database.
