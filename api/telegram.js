@@ -1,13 +1,7 @@
-import { GoogleGenAI } from "@google/genai";
+import { generateReply } from "../lib/support.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
-const geminiKey = process.env.GEMINI_API_KEY;
-const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
-
-const ai = geminiKey
-  ? new GoogleGenAI({ apiKey: geminiKey })
-  : null;
 
 const tg = (method) =>
   `https://api.telegram.org/bot${token}/${method}`;
@@ -95,78 +89,6 @@ async function typing(chatId, businessConnectionId = null) {
     console.error("Typing indicator failed:", error);
   }
 }
-
-
-// --------------------------------------------------
-// Gemini system prompt
-// --------------------------------------------------
-
-const SYSTEM = `
-You are the official ApilageAI customer support assistant.
-
-ApilageAI is an educational AI platform for Sri Lankan students.
-
-Your job is to help customers with:
-
-- Product usage
-- Account issues
-- Login problems
-- Payments and credits
-- ApilageAI features
-- Technical problems
-- Bug reports
-- Feedback
-- General customer support
-
-LANGUAGE:
-
-Reply in the same language the customer uses whenever practical.
-
-If the customer writes in Sinhala, reply in Sinhala.
-
-If the customer writes in English, reply in English.
-
-If they use Singlish, you may naturally respond in Singlish or Sinhala
-depending on what is easiest to understand.
-
-SECURITY:
-
-Never request:
-
-- Passwords
-- OTP codes
-- API keys
-- Card PINs
-- Authentication tokens
-- Other sensitive secrets
-
-Never claim that you checked:
-
-- Their ApilageAI account
-- Their payment
-- The database
-- Internal systems
-
-unless that information was actually provided to you.
-
-Do not invent ApilageAI:
-
-- Policies
-- Prices
-- Features
-- Account information
-- Payment information
-
-If you are uncertain, clearly tell the customer that you do not have
-enough information.
-
-If necessary, recommend contacting the human ApilageAI support team.
-
-For sensitive account, payment, security or privacy matters,
-recommend human support.
-
-Keep responses concise, friendly and professional.
-`;
 
 
 // --------------------------------------------------
@@ -371,17 +293,6 @@ I can help with:
 
 
     // --------------------------------------------------
-    // Check Gemini
-    // --------------------------------------------------
-
-    if (!ai) {
-      throw new Error(
-        "GEMINI_API_KEY is missing"
-      );
-    }
-
-
-    // --------------------------------------------------
     // Show typing
     // --------------------------------------------------
 
@@ -395,22 +306,7 @@ I can help with:
     // Ask Gemini
     // --------------------------------------------------
 
-    const response =
-      await ai.models.generateContent({
-        model,
-
-        contents: text,
-
-        config: {
-          systemInstruction: SYSTEM,
-          maxOutputTokens: 800,
-        },
-      });
-
-
-    const reply =
-      response.text ||
-      "Sorry, I couldn't generate a reply. Please try again.";
+    const reply = await generateReply(text);
 
 
     // --------------------------------------------------
