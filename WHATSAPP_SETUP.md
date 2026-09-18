@@ -60,7 +60,8 @@ load documents or instructions from a separate Google AI Studio conversation.
 - Text questions are answered; attachments receive a request to send text.
 - Delivery statuses and events for other Phone Number IDs are ignored.
 - Requests require a valid Meta signature over the original request body.
-- No chat history, durable queue, or persistent message deduplication is included.
+- Five customer-message/AI-reply pairs are remembered per chat (see README.md for Redis setup).
+  No durable queue or persistent message deduplication is included.
   Meta retries or partial batch failures can result in duplicate replies.
 - Processing completes before acknowledging the webhook. For higher volume, add a
   durable queue and message-ID deduplication so the webhook can acknowledge quickly.

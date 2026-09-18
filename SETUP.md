@@ -127,6 +127,6 @@ Confirm `GEMINI_API_KEY` exists in Vercel Environment Variables and redeploy aft
 Change `GEMINI_MODEL` in Vercel and redeploy. The default included here is `gemini-3.5-flash-lite`.
 
 ## Important limitations
-This starter does **not** store chat history, customer accounts or support tickets. Each normal message is sent to Gemini independently. This keeps the first deployment simple and avoids needing a database.
+The bot remembers the last five customer-message/AI-reply pairs per chat. See README.md for persistent Redis configuration on Vercel. Customer accounts and support tickets are not stored.
 
 Do not place secrets directly in source code or commit `.env` files to GitHub.

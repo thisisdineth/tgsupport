@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { createHmac } from 'node:crypto';
+import { conversationKey } from '../lib/memory.js';
 import { createHandler } from '../api/whatsapp.js';
 
 const env = { WHATSAPP_VERIFY_TOKEN: 'verify', WHATSAPP_APP_SECRET: 'secret', WHATSAPP_ACCESS_TOKEN: 'token', WHATSAPP_PHONE_NUMBER_ID: '123', WHATSAPP_API_VERSION: 'v25.0' };
@@ -14,9 +15,9 @@ async function run(body, options = {}) {
   req.url = options.url || '/api/whatsapp';
   req.headers = { 'x-hub-signature-256': options.signature ?? `sha256=${createHmac('sha256', env.WHATSAPP_APP_SECRET).update(raw).digest('hex')}` };
   const res = { status(code) { this.code = code; return this; }, json(data) { this.data = data; }, send(data) { this.data = data; } };
-  const sent = [], prompts = [];
-  await createHandler({ env: options.env || env, reply: async text => { prompts.push(text); if (options.aiFailure) throw Error('failed'); return options.answer || 'Hello'; }, request: async (url, init) => { sent.push({ url, body: JSON.parse(init.body) }); return { ok: !options.sendFailure, status: 503 }; } })(req, res);
-  return { ...res, sent, prompts };
+  const sent = [], prompts = [], keys = [];
+  await createHandler({ env: options.env || env, reply: async (text, key) => { prompts.push(text); keys.push(key); if (options.aiFailure) throw Error('failed'); return options.answer || 'Hello'; }, request: async (url, init) => { sent.push({ url, body: JSON.parse(init.body) }); return { ok: !options.sendFailure, status: 503 }; } })(req, res);
+  return { ...res, sent, prompts, keys };
 }
 test('verification challenge and invalid token', async () => {
   assert.equal((await run({}, { method: 'GET', url: '/api/whatsapp?hub.mode=subscribe&hub.verify_token=verify&hub.challenge=123' })).data, '123');
@@ -29,6 +30,7 @@ test('invalid signatures rejected before Gemini', async () => {
 test('signed raw JSON handled and reply routed to sender', async () => {
   const result = await run(payload([message]), { raw: JSON.stringify(payload([message]), null, 2) });
   assert.equal(result.code, 200); assert.deepEqual(result.prompts, ['Login help']);
+  assert.equal(result.keys[0], conversationKey('whatsapp', '123', message.from));
   assert.equal(result.sent[0].body.to, message.from);
   assert.equal(result.sent[0].body.context.message_id, message.id);
 });

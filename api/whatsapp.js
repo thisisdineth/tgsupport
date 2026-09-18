@@ -1,3 +1,4 @@
+import { conversationKey } from "../lib/memory.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { generateReply } from "../lib/support.js";
 
@@ -59,7 +60,7 @@ export function createHandler({ reply = generateReply, request = fetch, env = pr
             const text = message.type === "text" ? message.text?.body?.trim() : "";
             let answer;
             if (text) {
-              try { answer = await reply(text); }
+              try { answer = await reply(text, conversationKey("whatsapp", env.WHATSAPP_PHONE_NUMBER_ID, message.from)); }
               catch {
                 console.error("WhatsApp Gemini reply failed");
                 answer = "Sorry — I couldn't process that right now. Please try again shortly.";

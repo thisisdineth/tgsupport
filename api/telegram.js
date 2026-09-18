@@ -1,3 +1,4 @@
+import { conversationKey } from "../lib/memory.js";
 import { generateReply } from "../lib/support.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -306,7 +307,9 @@ I can help with:
     // Ask Gemini
     // --------------------------------------------------
 
-    const reply = await generateReply(text);
+    const reply = await generateReply(text, conversationKey(
+      "telegram", businessConnectionId, chatId, msg.message_thread_id || null, msg.from?.id || chatId
+    ));
 
 
     // --------------------------------------------------
