@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApilageAI WhatsApp Chat Dashboard</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-alt: #1f2937;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --accent: #22c55e;
+        --accent-2: #3b82f6;
+        --danger: #f97316;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: linear-gradient(180deg, var(--bg), #020817);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 2vw, 2.6rem);
+      }
+      .badge {
+        background: rgba(34, 197, 94, 0.15);
+        color: var(--accent);
+        border: 1px solid rgba(34, 197, 94, 0.4);
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 0.9rem;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+      .card {
+        background: rgba(17, 24, 39, 0.95);
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 16px;
+        padding: 18px;
+      }
+      .label {
+        color: var(--muted);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .value {
+        margin-top: 10px;
+        font-size: 1.8rem;
+        font-weight: 700;
+      }
+      .list {
+        display: grid;
+        gap: 14px;
+      }
+      .chat-item {
+        background: rgba(17, 24, 39, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        padding: 18px;
+      }
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+      .user {
+        font-weight: 700;
+        color: var(--text);
+      }
+      .toggle {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 5px 8px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        background: rgba(59, 130, 246, 0.15);
+        color: var(--accent-2);
+        border: 1px solid rgba(59, 130, 246, 0.35);
+      }
+      .bubble {
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+        padding: 12px 14px;
+        border-radius: 10px;
+        margin-top: 8px;
+      }
+      .bubble strong {
+        display: inline-block;
+        margin-bottom: 5px;
+      }
+      .empty {
+        padding: 20px;
+        text-align: center;
+        color: var(--muted);
+      }
+      @media (max-width: 720px) {
+        .header { flex-direction: column; align-items: flex-start; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="header">
+        <h1>WhatsApp Bot Chat Dashboard</h1>
+        <div class="badge">ApilageAI</div>
+      </div>
+
+      <div class="stats">
+        <div class="card">
+          <div class="label">Total chats</div>
+          <div class="value" id="total-chats">0</div>
+        </div>
+        <div class="card">
+          <div class="label">Escalations</div>
+          <div class="value" id="escalations">0</div>
+        </div>
+      </div>
+
+      <div id="list" class="list"></div>
+    </div>
+
+    <script>
+      async function loadChats() {
+        try {
+          const response = await fetch('/api/chat-log');
+          const data = await response.json();
+          const chats = Array.isArray(data.chats) ? data.chats : [];
+
+          const list = document.getElementById('list');
+          const total = document.getElementById('total-chats');
+          const escalations = document.getElementById('escalations');
+
+          total.textContent = chats.length;
+          escalations.textContent = chats.filter((chat) => chat.escalatedToHuman).length;
+
+          if (!chats.length) {
+            list.innerHTML = '<div class="empty">No WhatsApp chats yet.</div>';
+            return;
+          }
+
+          list.innerHTML = chats.map((chat) => `
+            <div class="chat-item">
+              <div class="meta">
+                <div class="user">${chat.from}</div>
+                <div>${new Date(chat.createdAt).toLocaleString()}</div>
+              </div>
+              ${chat.escalatedToHuman ? '<span class="toggle">Human handoff</span>' : ''}
+              <div class="bubble">
+                <strong>Customer:</strong>
+                <div>${chat.incoming || 'No text message'}</div>
+              </div>
+              <div class="bubble">
+                <strong>Bot:</strong>
+                <div>${chat.reply || 'No reply recorded'}</div>
+              </div>
+            </div>
+          `).join('');
+        } catch (error) {
+          document.getElementById('list').innerHTML = '<div class="empty">Unable to load chats right now.</div>';
+          console.error(error);
+        }
+      }
+
+      loadChats();
+      setInterval(loadChats, 15000);
+    </script>
+  </body>
+</html>

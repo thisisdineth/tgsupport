@@ -4,6 +4,7 @@ import { Readable } from 'node:stream';
 import { createHmac } from 'node:crypto';
 import { conversationKey } from '../lib/memory.js';
 import { createHandler } from '../api/whatsapp.js';
+import { shouldEscalateToHuman } from '../lib/human-handoff.js';
 
 const env = { WHATSAPP_VERIFY_TOKEN: 'verify', WHATSAPP_APP_SECRET: 'secret', WHATSAPP_ACCESS_TOKEN: 'token', WHATSAPP_PHONE_NUMBER_ID: '123', WHATSAPP_API_VERSION: 'v25.0' };
 const payload = (messages, phone = '123') => ({ object: 'whatsapp_business_account', entry: [{ changes: [{ field: 'messages', value: { metadata: { phone_number_id: phone }, messages } }] }] });
@@ -46,6 +47,11 @@ test('all batched messages and long replies handled', async () => {
 test('non-text messages get guidance without Gemini', async () => {
   const result = await run(payload([{ ...message, type: 'image' }]));
   assert.equal(result.prompts.length, 0); assert.match(result.sent[0].body.text.body, /text message/);
+});
+test('human support requests are escalated to staff', () => {
+  assert.equal(shouldEscalateToHuman('I want to speak to a real person'), true);
+  assert.equal(shouldEscalateToHuman('Please call me or message a human'), true);
+  assert.equal(shouldEscalateToHuman('Can you tell me about pricing?'), false);
 });
 test('Gemini errors send fallback; delivery failures request retry', async () => {
   assert.equal((await run(payload([message]), { aiFailure: true })).code, 200);

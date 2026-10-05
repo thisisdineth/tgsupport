@@ -1,6 +1,8 @@
 import { conversationKey } from "../lib/memory.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { generateReply } from "../lib/support.js";
+import { chatLog } from "../lib/chat-log.js";
+import { HUMAN_SUPPORT_NUMBER, buildEscalationMessage, normalizePhoneNumber, shouldEscalateToHuman } from "../lib/human-handoff.js";
 
 // Signature verification must use the original bytes, not re-serialized JSON.
 export const config = { api: { bodyParser: false } };
@@ -15,6 +17,26 @@ async function readBody(req) {
     chunks.push(buffer);
   }
   return Buffer.concat(chunks);
+}
+
+async function sendWhatsAppMessage({ request, env, to, body, contextMessageId = null }) {
+  const response = await request(
+    `https://graph.facebook.com/${env.WHATSAPP_API_VERSION}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", Authorization: `Bearer ${env.WHATSAPP_ACCESS_TOKEN}` },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        ...(contextMessageId ? { context: { message_id: contextMessageId } } : {}),
+        type: "text",
+        text: { body },
+      }),
+      signal: AbortSignal.timeout(15000),
+    },
+  );
+  if (!response.ok) throw new Error(`WhatsApp send failed (${response.status})`);
+  return response;
 }
 
 export function createHandler({ reply = generateReply, request = fetch, env = process.env } = {}) {
@@ -58,29 +80,48 @@ export function createHandler({ reply = generateReply, request = fetch, env = pr
           for (const message of value.messages || []) {
             if (!message.from || !message.id) continue;
             const text = message.type === "text" ? message.text?.body?.trim() : "";
+            const escalatedToHuman = Boolean(text && shouldEscalateToHuman(text));
             let answer;
             if (text) {
-              try { answer = await reply(text, conversationKey("whatsapp", env.WHATSAPP_PHONE_NUMBER_ID, message.from)); }
-              catch {
-                console.error("WhatsApp Gemini reply failed");
-                answer = "Sorry — I couldn't process that right now. Please try again shortly.";
+              if (escalatedToHuman) {
+                answer = "Thanks for reaching out. I have forwarded your request to a real person and they will respond as soon as possible.";
+              } else {
+                try { answer = await reply(text, conversationKey("whatsapp", env.WHATSAPP_PHONE_NUMBER_ID, message.from)); }
+                catch {
+                  console.error("WhatsApp Gemini reply failed");
+                  answer = "Sorry — I couldn't process that right now. Please try again shortly.";
+                }
               }
             } else {
               answer = "Please send your question as a text message so I can help.";
             }
             for (const chunk of String(answer).match(/[\s\S]{1,4000}/gu) || []) {
-              const response = await request(
-                `https://graph.facebook.com/${env.WHATSAPP_API_VERSION}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
-                {
-                  method: "POST",
-                  headers: { "content-type": "application/json", Authorization: `Bearer ${env.WHATSAPP_ACCESS_TOKEN}` },
-                  body: JSON.stringify({ messaging_product: "whatsapp", to: message.from,
-                    context: { message_id: message.id }, type: "text", text: { body: chunk } }),
-                  signal: AbortSignal.timeout(15000),
-                },
-              );
-              if (!response.ok) throw new Error(`WhatsApp send failed (${response.status})`);
+              await sendWhatsAppMessage({
+                request,
+                env,
+                to: message.from,
+                body: chunk,
+                contextMessageId: message.id,
+              });
             }
+
+            if (escalatedToHuman) {
+              const staffMessage = buildEscalationMessage(message.from, text);
+              await sendWhatsAppMessage({
+                request,
+                env,
+                to: normalizePhoneNumber(HUMAN_SUPPORT_NUMBER),
+                body: staffMessage,
+              });
+            }
+
+            await chatLog.append({
+              channel: 'whatsapp',
+              from: message.from,
+              incoming: text || '[non-text message]',
+              reply: answer,
+              escalatedToHuman,
+            });
           }
         }
       }
