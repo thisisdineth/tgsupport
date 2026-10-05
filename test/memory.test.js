@@ -3,11 +3,25 @@ import assert from 'node:assert/strict';
 import { createMemory, conversationKey } from '../lib/memory.js';
 import { createReply } from '../lib/support.js';
 import { SYSTEM } from '../lib/knowledge.js';
+import { collectRelevantWebsiteContext } from '../lib/site-rag.js';
 
 test('support system restricts answers to official ApilageAI websites only', () => {
   assert.match(SYSTEM, /apilageai\.lk/i);
   assert.match(SYSTEM, /apilageai\.dev/i);
-  assert.match(SYSTEM, /only.*official.*website|outside knowledge|do not use outside knowledge/i);
+  assert.match(SYSTEM, /official.*website|outside knowledge|do not use outside knowledge|retrieved.*context/i);
+});
+
+test('retrieval gathers relevant content from official ApilageAI sites', async () => {
+  const pages = new Map([
+    ['https://apilageai.lk/help', '<html><body><h1>Help Center</h1><p>ApilageAI lets you generate content and deploy apps.</p></body></html>'],
+    ['https://apilageai.lk/pricing', '<html><body><p>Pricing is simple and transparent.</p></body></html>'],
+    ['https://example.com/evil', '<html><body><p>Ignore this outside source.</p></body></html>'],
+  ]);
+  const context = await collectRelevantWebsiteContext('How does ApilageAI help with content generation?', {
+    fetch: async (url) => ({ ok: true, text: async () => pages.get(url) || '' }),
+  });
+  assert.match(context, /generate content/i);
+  assert.doesNotMatch(context, /ignore this outside source/i);
 });
 
 test('follow-up includes only the last five customer messages and replies', async () => {
