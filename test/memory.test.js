@@ -2,6 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createMemory, conversationKey } from '../lib/memory.js';
 import { createReply } from '../lib/support.js';
+import { SYSTEM } from '../lib/knowledge.js';
+
+test('support system restricts answers to official ApilageAI websites only', () => {
+  assert.match(SYSTEM, /apilageai\.lk/i);
+  assert.match(SYSTEM, /apilageai\.dev/i);
+  assert.match(SYSTEM, /only.*official.*website|outside knowledge|do not use outside knowledge/i);
+});
 
 test('follow-up includes only the last five customer messages and replies', async () => {
   const store = createMemory({ env: {} });
